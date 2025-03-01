@@ -80,7 +80,6 @@ init () {
     install_lib "libguestfs-tools"
     mkdir -p $script_tmp_path
     cd $script_tmp_path
-    set_custom_dns
 }
 
 get_image () {
@@ -161,4 +160,5 @@ get_image
 enable_cpu_hotplug
 install_qemu_agent
 reset_machine_id
+set_custom_dns
 create_vm_tmpl
