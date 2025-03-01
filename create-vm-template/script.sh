@@ -80,6 +80,7 @@ init () {
     install_lib "libguestfs-tools"
     mkdir -p $script_tmp_path
     cd $script_tmp_path
+    set_custom_dns
 }
 
 get_image () {
@@ -118,6 +119,21 @@ reset_machine_id () {
     run_cmd "virt-customize -x -a $ubuntu_img_filename --run-command 'echo -n >/etc/machine-id'"
     print_ok
 }
+
+set_custom_dns () {
+    echo -n "Setting custom DNS resolvers..."
+
+    run_cmd "virt-customize -a $ubuntu_img_filename --run-command \
+        'echo \"[Resolve]\" > /etc/systemd/resolved.conf && \
+        echo \"DNS=1.1.1.1 1.0.0.1\" >> /etc/systemd/resolved.conf && \
+        echo \"FallbackDNS=8.8.8.8 8.8.4.4\" >> /etc/systemd/resolved.conf && \
+        echo \"Domains=~.\" >> /etc/systemd/resolved.conf && \
+        echo \"DNSStubListener=no\" >> /etc/systemd/resolved.conf'"
+
+    run_cmd "virt-customize -a $ubuntu_img_filename --run-command 'ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf'"
+    print_ok
+}
+
 
 create_vm_tmpl () {
     echo -n "Creating VM template..."
