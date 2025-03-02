@@ -2,19 +2,6 @@ name: Install Tailscale on Proxmox
 
 on:
   workflow_dispatch:
-    inputs:
-      tailscale_domain:
-        description: 'Define your Tailscale domain'
-        required: true
-        default: 'yourdomain.com'
-      tailscale_hostname:
-        description: 'Define your Tailscale hostname'
-        required: true
-        default: 'pve'
-      tailscale_exit_node:
-        description: 'Set to "true" to advertise as an exit node'
-        required: false
-        default: 'false'
   push:
     branches:
       - main
@@ -23,9 +10,9 @@ jobs:
   install-tailscale:
     runs-on: ubuntu-latest
     env:
-      TAILSCALE_DOMAIN: ${{ github.event.inputs.tailscale_domain }}
-      TAILSCALE_HOSTNAME: ${{ github.event.inputs.tailscale_hostname }}
-      TAILSCALE_EXIT_NODE: ${{ github.event.inputs.tailscale_exit_node }}
+      TAILSCALE_DOMAIN: ${{ vars.TAILSCALE_DOMAIN }}
+      TAILSCALE_HOSTNAME: ${{ vars.TAILSCALE_HOSTNAME }}
+      TAILSCALE_EXIT_NODE: ${{ vars.TAILSCALE_EXIT_NODE }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,12 +20,10 @@ jobs:
       - name: Uninstall and Install Tailscale on Proxmox via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.PROXMOX_HOST }}
-          username: ${{ secrets.PROXMOX_USER }}
+          host: ${{ secrets.EXTERNAL_SERVER_IP_OR_DOMAIN }}
+          username: ${{ secrets.USERNAME }}
           port: 22
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # If you prefer password authentication, comment out the key line above and uncomment below:
-          # password: ${{ secrets.SSH_PASSWORD }}
           script: |
             #!/bin/bash
             set -e
