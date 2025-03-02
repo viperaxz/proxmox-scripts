@@ -2,7 +2,11 @@ name: Add user api token
 
 on:
   workflow_dispatch:
-
+    inputs:
+      overwrite_token:
+        description: 'Set to true to overwrite an existing token'
+        required: false
+        default: "false"
 
 jobs:
   add-token:
@@ -29,5 +33,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
           script: |
+            export OVERWRITE_TOKEN="${{ github.event.inputs.overwrite_token }}"
             chmod +x ~/add-user-api-token/script.sh
             ~/add-user-api-token/script.sh
