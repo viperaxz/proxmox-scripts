@@ -9,47 +9,32 @@ on:
 jobs:
   install-tailscale:
     runs-on: ubuntu-latest
-    env:
-      TAILSCALE_DOMAIN: ${{ vars.TAILSCALE_DOMAIN }}
-      TAILSCALE_HOSTNAME: ${{ vars.TAILSCALE_HOSTNAME }}
-      TAILSCALE_EXIT_NODE: ${{ vars.TAILSCALE_EXIT_NODE }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Uninstall and Install Tailscale on Proxmox via SSH
+      - name: Copy installation script to remote server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
+          username: ${{ vars.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "install-tailscale-vpn/script.sh"
+          target: "~/install-tailscale-vpn/script.sh"
+
+      - name: Execute installation script on remote server via SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.EXTERNAL_SERVER_IP_OR_DOMAIN }}
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
           username: ${{ secrets.USERNAME }}
-          port: 22
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
-            #!/bin/bash
-            set -e
-
-            # Uninstall Tailscale if it exists.
-            if command -v tailscale >/dev/null 2>&1; then
-              echo "Tailscale is already installed. Uninstalling..."
-              sudo tailscale down
-              sudo apt-get purge -y tailscale || true
-              sudo apt-get autoremove -y || true
-            else
-              echo "Tailscale is not installed. Proceeding with installation."
-            fi
-
-            # Install Tailscale using the official install script.
-            curl -fsSL https://tailscale.com/install.sh | sh
-
-            # Set exit node flag if requested.
-            if [ "$TAILSCALE_EXIT_NODE" = "true" ]; then
-              EXIT_FLAG="--advertise-exit-node"
-            else
-              EXIT_FLAG=""
-            fi
-
-            # Bring up Tailscale using your auth key and assign a fully qualified hostname.
-            sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname="${TAILSCALE_HOSTNAME}.${TAILSCALE_DOMAIN}" $EXIT_FLAG
-
-            # (Optional) Display Tailscale status for verification.
-            sudo tailscale status
+            chmod +x ~/install-tailscale-vpn/script.sh
+            # Set environment variables and then run the script
+            export TAILSCALE_DOMAIN="${{ vars.TAILSCALE_DOMAIN }}"
+            export TAILSCALE_HOSTNAME="${{ vars.TAILSCALE_HOSTNAME }}"
+            export TAILSCALE_EXIT_NODE="${{ vars.TAILSCALE_EXIT_NODE }}"
+            export TAILSCALE_AUTH_KEY="${{ secrets.TAILSCALE_AUTH_KEY }}"
+            ~/install-tailscale-vpn/script.sh
