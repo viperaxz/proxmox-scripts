@@ -27,7 +27,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.1
         with:
           host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
-          username: ${{ secrets.USERNAME }}
+          username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
