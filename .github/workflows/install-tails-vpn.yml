@@ -19,7 +19,7 @@ jobs:
           host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
+          port: ${{ vars.SSH_PORT }}
           source: "install-tailscale-vpn/script.sh"
           target: "~/"
 
@@ -29,7 +29,7 @@ jobs:
           host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
+          port: ${{ vars.SSH_PORT }}
           script: |
             chmod +x ~/install-tailscale-vpn/script.sh
             # Set environment variables and then run the script
