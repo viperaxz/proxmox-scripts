@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           source: "install-tailscale-vpn/script.sh"
-          target: "~/install-tailscale-vpn"
+          target: "~/"
 
       - name: Execute installation script on remote server via SSH
         uses: appleboy/ssh-action@v1.2.1
