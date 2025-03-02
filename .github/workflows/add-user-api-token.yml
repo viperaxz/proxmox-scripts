@@ -1,4 +1,4 @@
-name: Add user api token
+name: Add User API Token
 
 on:
   workflow_dispatch:

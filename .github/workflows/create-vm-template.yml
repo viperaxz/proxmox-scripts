@@ -35,7 +35,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
           source: "create-vm-template/script.sh"
-          target: "~/create-vm-template/"
+          target: "~/"
 
       - name: Execute VM Template script on remote server via SSH
         uses: appleboy/ssh-action@v1.2.1
