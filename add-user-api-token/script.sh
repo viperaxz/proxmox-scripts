@@ -60,7 +60,8 @@ else
     $SUDO pveum user token add $userid $tokenid -privsep false
 fi
 
-# Save token details into a file named "token" and display them.
-$SUDO pveum user token show $userid $tokenid > token
+
+# Save token details (filtering the token list) into a file named "token" and display them.
+$SUDO pveum user token list $userid | grep "$tokenid" > token
 echo "Token details:"
 cat token

@@ -5,7 +5,7 @@ on:
 
 
 jobs:
-  install-tailscale:
+  add-token:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
