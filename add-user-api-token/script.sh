@@ -15,19 +15,19 @@ fi
 # Update package list and install sudo if needed.
 $SUDO apt-get update && $SUDO apt-get install sudo -y
 
-# Check if the user exists; if not, create it.
-if $SUDO pveum user show $userid &> /dev/null; then
+# Check if the user exists by listing users and grepping for an exact match.
+if $SUDO pveum user list | grep -q "^$userid\b"; then
     echo "User '$userid' exists. Using existing user."
 else
     echo "Creating user '$userid'."
     $SUDO pveum user add $userid
 fi
 
-# Check if the role exists.
-if $SUDO pveum role show $roleid &> /dev/null; then
+# Check if the role exists by listing roles.
+if $SUDO pveum role list | grep -q "^$roleid\b"; then
     echo "Role '$roleid' exists. Checking privileges."
-    # Retrieve current privileges (assumes output includes a line like "Privs: <privileges>")
-    current_privs=$($SUDO pveum role show $roleid | grep -oP 'Privs:\s+\K.*')
+    # Extract current privileges for the role.
+    current_privs=$($SUDO pveum role list | grep "^$roleid\b" | sed "s/^$roleid\s*//")
     
     missing_privs=""
     for priv in $required_privs; do
@@ -37,10 +37,9 @@ if $SUDO pveum role show $roleid &> /dev/null; then
     done
 
     if [ -n "$missing_privs" ]; then
-        echo "Adding missing privileges: $missing_privs"
-        # Combine the existing privileges with the missing ones.
+        echo "Adding missing privileges:$missing_privs"
         new_privs="$current_privs $missing_privs"
-        $SUDO pveum role update $roleid -privs "$new_privs"
+        $SUDO pveum role modify $roleid -privs "$new_privs"
     else
         echo "All required privileges are already set for role '$roleid'."
     fi
@@ -52,16 +51,15 @@ fi
 # Assign the role to the user via ACL.
 $SUDO pveum aclmod / -user $userid -role $roleid
 
-# Check if the token exists; if not, create it with privilege separation disabled.
-if $SUDO pveum user token show $userid $tokenid &> /dev/null; then
+# Check if the token exists by listing tokens for the user.
+if $SUDO pveum user token list $userid | grep -qw "$tokenid"; then
     echo "Token '$tokenid' for user '$userid' exists."
 else
     echo "Creating token '$tokenid' for user '$userid'."
     $SUDO pveum user token add $userid $tokenid -privsep false
 fi
 
-
-# Save token details (filtering the token list) into a file named "token" and display them.
+# Save token details (filtered from the token list) into a file named "token" and display them.
 $SUDO pveum user token list $userid | grep "$tokenid" > token
 echo "Token details:"
 cat token
