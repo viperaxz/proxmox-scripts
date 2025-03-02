@@ -1,0 +1,33 @@
+name: Add user api token
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  install-tailscale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy installation script to remote server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
+          username: ${{ vars.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT }}
+          source: "add-user-api-token/script.sh"
+          target: "~/"
+
+      - name: Execute installation script on remote server via SSH
+        uses: appleboy/ssh-action@v1.2.1
+        with:
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
+          username: ${{ vars.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT }}
+          script: |
+            chmod +x ~/add-user-api-token/script.sh
+            ~/add-user-api-token/script.sh
