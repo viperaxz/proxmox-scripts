@@ -1,144 +1,120 @@
 
-# Tailscale Installation Workflow for Proxmox
+# Tailscale Installation via GitHub Actions
 
-instll-tails-vpn is a GitHub Actions Workflow that automates the installation (or reinstallation) of [Tailscale](https://tailscale.com) on a Proxmox server. The workflow connects to the Proxmox server via SSH, uninstalls any existing Tailscale installation, and then installs and configures Tailscale using your provided authentication key. Additionally, it lets you optionally advertise the node as an exit node.
+This repository provides an automated solution to install Tailscale on a remote server using GitHub Actions. It includes a GitHub Actions workflow that securely copies and executes an installation script on your server. Follow the steps below to fork the repository, configure your Git environment, set up the necessary secrets, and use the provided scripts.
 
 ## Table of Contents
-
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
-- [Configuration](#configuration)
-  - [GitHub Secrets](#github-secrets)
-  - [Workflow Dispatch Inputs](#workflow-dispatch-inputs)
+- [FORKING & SETUP](#forking--setup)
+- [Configuring GitHub Secrets and Variables](#configuring-github-secrets-and-variables)
+- [GitHub Actions Workflow Explained](#github-actions-workflow-explained)
+- [Shell Script Explanation](#shell-script-explanation)
 - [Usage](#usage)
-- [Workflow Details](#workflow-details)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Overview
-
-This workflow does the following:
-- **Uninstall Existing Tailscale:** If Tailscale is already installed, the workflow stops its service and uninstalls it.
-- **Install Tailscale:** Uses the official Tailscale installation script to install Tailscale.
-- **Configure Tailscale:** Sets up Tailscale with your authentication key and assigns the node a fully qualified hostname composed of a user-defined hostname and domain.
-- **Optional Exit Node Setup:** You can choose to advertise the node as an exit node by setting an input variable.
+This project automates the process of installing (or reinstalling) Tailscale on your remote server. The GitHub Actions workflow does the following:
+1. Checks out the repository.
+2. Copies the Tailscale installation script to your remote server via SCP.
+3. Executes the installation script over SSH, ensuring Tailscale is configured using your custom parameters.
 
 ## Prerequisites
+Before you begin, ensure you have:
+- A GitHub account.
+- A remote server (preferably Ubuntu-based) with SSH access.
+- SSH credentials (private key, username, host, and port).
+- A valid Tailscale Auth Key (reusable, non epheral) (obtainable from [Tailscale](https://tailscale.com)).
 
-Before using this workflow, ensure you have:
+## FORKING & SETUP
+1. **Fork the Repository:**  
+   Click the **Fork** button at the top-right corner of the repository page to create your own copy.
 
-- **A Proxmox Server**: Accessible via SSH.
-- **GitHub Repository:** Where you can store the workflow file.
-- **Tailscale Auth Key:** Obtain a valid authentication key from [Tailscale Admin Console](https://login.tailscale.com/admin/settings/authkeys). ( Check -> Reusable and Ephemeral )
-- **SSH Access:** Configured either with an SSH private key or a password.
-- **GitHub Actions Runner:** The default runner is sufficient.
+2. **Clone Your Fork Locally:**  
+   Open your terminal and run:
+   ```bash
+   git clone https://github.com/your-username/your-forked-repo.git
+   cd your-forked-repo
+   ```
 
-## Configuration
+## Configuring GitHub Secrets and Variables
+In your forked repository, navigate to **Settings > Secrets and variables > Actions** and set up the following:
 
-### GitHub Secrets
+### Secrets
+- **SSH_PRIVATE_KEY:**  
+  Your private SSH key for connecting to the remote server.
 
-Set up the following secrets in your repository (under **Settings → Secrets and variables → Actions**):
+- **TAILSCALE_AUTH_KEY:**  
+  Your Tailscale authentication key.
 
-- `PROXMOX_HOST`: The external IP address (or domain name) of your Proxmox server.
-- `PROXMOX_USER`: The SSH username for your Proxmox server, you may use root
-- `SSH_PRIVATE_KEY`: Your private SSH key (or alternatively, use `SSH_PASSWORD` - not recommanded).
-- `TAILSCALE_AUTH_KEY`: Your Tailscale authentication key.
+### Variables
+- **EXTERNAL_IP_OR_DOMAIN:**  
+  The IP address or domain name of your remote server.
 
-### Workflow Dispatch Inputs
+- **USERNAME:**  
+  The username used for SSH access on your remote server.
 
-When manually triggering the workflow, you can set these non-sensitive configuration values:
+- **SSH_PORT:**  
+  The SSH port number (default is usually 22).
 
-- **`tailscale_domain`**: The interal domain for your Tailscale node (default: `yourdomain.com`).
-- **`tailscale_hostname`**: The hostname for your Tailscale node (default: `proxmox-node`).
-- **`tailscale_exit_node`**: Set to `"true"` to advertise the node as an exit node; defaults to `"false"`.
+- **TAILSCALE_HOSTNAME:**  
+  The hostname to be assigned to your Tailscale instance on the remote server.
 
-These inputs are passed as environment variables to the workflow.
+- **TAILSCALE_EXIT_NODE:**  
+  Set this to `"true"` if you want your server to function as an exit node, or `"false"` otherwise.
+
+## GitHub Actions Workflow Explained
+The workflow file (e.g., `.github/workflows/install-tailscale.yml`) contains the following key steps:
+
+1. **Checkout Repository:**  
+   Uses `actions/checkout@v3` to pull the code from your repository.
+
+2. **Copy Installation Script:**  
+   Uses `appleboy/scp-action@master` to securely copy `install-tailscale-vpn/script.sh` to your remote server's home directory.
+
+3. **Execute Installation Script:**  
+   Uses `appleboy/ssh-action@v1.2.1` to SSH into your remote server. It sets the necessary environment variables (such as `TAILSCALE_HOSTNAME`, `TAILSCALE_EXIT_NODE`, and `TAILSCALE_AUTH_KEY`), grants execute permissions to the script, and runs it.
+
+## Shell Script Explanation
+The `install-tailscale-vpn/script.sh` script performs the following actions:
+
+1. **Parameter Verification:**  
+   It checks that `TAILSCALE_HOSTNAME` and `TAILSCALE_AUTH_KEY` are set. If not, it exits with an error message.
+
+2. **Default Settings:**  
+   If `TAILSCALE_EXIT_NODE` isn’t provided, it defaults to `"false"`.
+
+3. **Uninstall Existing Tailscale:**  
+   If Tailscale is already installed, the script will bring it down and uninstall it to ensure a clean installation.
+
+4. **Install Tailscale:**  
+   The script downloads and runs the official Tailscale install script using `curl`.
+
+5. **Configuration:**  
+   Finally, it brings up Tailscale with the provided authentication key and hostname. If configured as an exit node, it advertises this during setup.
 
 ## Usage
 
-1. **Add the Workflow File:**
+- **Manual Trigger:**  
+  You can also run the workflow manually using the **Workflow Dispatch** option in the GitHub Actions tab.
 
-   Create a file at `.github/workflows/install-tailscale.yml` in your repository and paste the workflow code provided.
-
-2. **Trigger the Workflow:**
-
-   - **Manually:**  
-     - Go to the **Actions** tab in your repository.
-     - Select the **Install Tailscale on Proxmox** workflow.
-     - Click **Run workflow** and provide your custom inputs if needed.
-     
-   - **Automatically:**  
-     Any push to the `main` branch will also trigger the workflow.
-
-## Workflow Details
-
-The workflow uses the `appleboy/ssh-action` to connect to your Proxmox server via SSH. Here is an outline of the steps performed:
-
-1. **Repository Checkout:**  
-   The workflow checks out the repository to ensure the latest version is used.
-
-2. **SSH Connection & Script Execution:**  
-   The script executed on the server:
-   - Checks if Tailscale is installed. If so, it runs `tailscale down` and uninstalls it using `apt-get purge` and `apt-get autoremove`.
-   - Installs Tailscale using its official installation script.
-   - Constructs the fully qualified hostname by combining the provided `tailscale_hostname` and `tailscale_domain`.
-   - Checks the value of `tailscale_exit_node` and adds the `--advertise-exit-node` flag if set to `"true"`.
-   - Starts Tailscale with the provided authentication key.
-   - Optionally displays Tailscale status for verification.
-
-Below is the relevant snippet of the script:
-
-```bash
-#!/bin/bash
-set -e
-
-# Uninstall Tailscale if it exists.
-if command -v tailscale >/dev/null 2>&1; then
-  echo "Tailscale is already installed. Uninstalling..."
-  sudo tailscale down
-  sudo apt-get purge -y tailscale || true
-  sudo apt-get autoremove -y || true
-else
-  echo "Tailscale is not installed. Proceeding with installation."
-fi
-
-# Install Tailscale using the official install script.
-curl -fsSL https://tailscale.com/install.sh | sh
-
-# Set exit node flag if requested.
-if [ "$TAILSCALE_EXIT_NODE" = "true" ]; then
-  EXIT_FLAG="--advertise-exit-node"
-else
-  EXIT_FLAG=""
-fi
-
-# Bring up Tailscale using your auth key and assign a fully qualified hostname.
-sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname="${TAILSCALE_HOSTNAME}.${TAILSCALE_DOMAIN}" $EXIT_FLAG
-
-# (Optional) Display Tailscale status for verification.
-sudo tailscale status
-```
+- **Monitor:**  
+  Check the GitHub Actions logs to verify that the script is copied and executed correctly on your remote server.
 
 ## Troubleshooting
+- **Missing Environment Variables:**  
+  Ensure all required GitHub Secrets and Variables are configured correctly.
 
 - **SSH Connection Issues:**  
-  Ensure your Proxmox server is accessible from the GitHub Actions runner and that the SSH credentials in your secrets are correct.
+  Verify that your remote server is reachable via SSH and that your credentials are correct.
 
-- **Installation Failures:**  
-  Make sure your Proxmox server uses `apt-get` as its package manager; if not, adjust the uninstall commands accordingly.
-
-- **Incorrect Hostname/Domain:**  
-  Verify that the workflow inputs are correctly set when triggering the workflow to form the proper fully qualified hostname.
-
-## Contributing
-
-Contributions, suggestions, and improvements are welcome! Please open issues or submit pull requests if you have enhancements or fixes.
+- **Script Errors:**  
+  Review the GitHub Actions log output for any errors during the execution of the script, which can help diagnose issues.
 
 ## License
-
 This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-This `README.md` file provides detailed instructions on how to set up and use the workflow, making it easier for others to understand and utilize the script in their own environment.
+Feel free to open issues or submit pull requests if you encounter any problems or have suggestions for improvement.
