@@ -1,0 +1,53 @@
+name: Create VM Template
+
+on:
+  workflow_dispatch:
+    inputs:
+      UBUNTU_VERSION:
+        description: "Ubuntu version (default: 24.04)"
+        required: false
+        default: "24.04"
+      VM_TMPL_ID:
+        description: "Proxmox Template ID (default: 9000)"
+        required: false
+        default: "9000"
+      VM_TMPL_NAME:
+        description: "Proxmox Template Name (default: ubuntu-2404)"
+        required: false
+        default: "ubuntu-2404"
+      STORAGE_INDEX:
+        description: "Storage index to use (default: 0)"
+        required: false
+        default: "3"
+
+jobs:
+  create-vm-template:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy VM Template script to remote server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
+          username: ${{ vars.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT }}
+          source: "create-vm-template/script.sh"
+          target: "~/create-vm-template/"
+
+      - name: Execute VM Template script on remote server via SSH
+        uses: appleboy/ssh-action@v1.2.1
+        with:
+          host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
+          username: ${{ vars.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT }}
+          script: |
+            export UBUNTU_VERSION="${{ github.event.inputs.UBUNTU_VERSION }}"
+            export VM_TMPL_ID="${{ github.event.inputs.VM_TMPL_ID }}"
+            export VM_TMPL_NAME="${{ github.event.inputs.VM_TMPL_NAME }}"
+            export STORAGE_INDEX="${{ github.event.inputs.STORAGE_INDEX }}"
+            chmod +x ~/create-vm-template/script.sh
+            ~/create-vm-template/script.sh

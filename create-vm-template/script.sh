@@ -17,16 +17,17 @@ trap error_handler EXIT
 # Function to run commands and capture stderr
 run_cmd() {
     local cmd="$1"
-    local stderr_file=$(mktemp)
+    local stderr_file
+    stderr_file=$(mktemp)
 
-    if ! eval "$cmd" > /dev/null 2>$stderr_file; then
+    if ! eval "$cmd" > /dev/null 2>"$stderr_file"; then
         echo -e "\e[31mError\n Command '$cmd' failed with output:\e[0m" 1>&2
-        cat $stderr_file | awk '{print " \033[31m" $0 "\033[0m"}' 1>&2
-        rm -f $stderr_file
+        awk '{print " \033[31m" $0 "\033[0m"}' "$stderr_file" 1>&2
+        rm -f "$stderr_file"
         exit 1
     fi
 
-    rm -f $stderr_file
+    rm -f "$stderr_file"
 }
 
 # Function to print OK message
@@ -39,15 +40,10 @@ df_ubuntu_ver="24.04"
 df_vm_tmpl_id="9000"
 df_vm_tmpl_name="ubuntu-2404"
 
-# Prompt for user input
-read -p "Enter Ubuntu version (default: ${df_ubuntu_ver}): " ubuntu_ver
-ubuntu_ver="${ubuntu_ver:-$df_ubuntu_ver}"
-
-read -p "Enter Proxmox Template ID (default: ${df_vm_tmpl_id}): " vm_tmpl_id
-vm_tmpl_id="${vm_tmpl_id:-$df_vm_tmpl_id}"
-
-read -p "Enter Proxmox Template Name (default: ${df_vm_tmpl_name}): " vm_tmpl_name
-vm_tmpl_name="${vm_tmpl_name:-$df_vm_tmpl_name}"
+# Use environment variables or fall back to defaults.
+ubuntu_ver="${UBUNTU_VERSION:-$df_ubuntu_ver}"
+vm_tmpl_id="${VM_TMPL_ID:-$df_vm_tmpl_id}"
+vm_tmpl_name="${VM_TMPL_NAME:-$df_vm_tmpl_name}"
 
 # Get list of storages
 storages=($(pvesm status | awk 'NR>1 {print $1}'))
@@ -56,15 +52,14 @@ for i in "${!storages[@]}"; do
     echo "  $i: ${storages[$i]}"
 done
 
-# Prompt for user input for storage
-read -p "Enter the index number of the storage to put the VM template into (default: 0): " storage_index
-storage_index="${storage_index:-0}"
+# Use environment variable for storage index (default 0)
+storage_index="${STORAGE_INDEX:-0}"
 vm_disk_storage="${storages[$storage_index]}"
 
 # Construct the Ubuntu image URL based on the version input
 ubuntu_img_url="https://cloud-images.ubuntu.com/releases/${ubuntu_ver}/release/ubuntu-${ubuntu_ver}-server-cloudimg-amd64.img"
-ubuntu_img_filename=$(basename $ubuntu_img_url)
-ubuntu_img_base_url=$(dirname $ubuntu_img_url)
+ubuntu_img_filename=$(basename "$ubuntu_img_url")
+ubuntu_img_base_url=$(dirname "$ubuntu_img_url")
 df_iso_path="/var/lib/vz/template/iso"
 script_tmp_path=/tmp/proxmox-scripts
 
@@ -78,15 +73,16 @@ install_lib () {
 init () {
     cleanup
     install_lib "libguestfs-tools"
-    mkdir -p $script_tmp_path
-    cd $script_tmp_path
+    mkdir -p "$script_tmp_path"
+    cd "$script_tmp_path" || exit
 }
 
 get_image () {
     local existing_img="$df_iso_path/$ubuntu_img_filename"
-    local img_sha256sum=$(curl -s $ubuntu_img_base_url/SHA256SUMS | grep $ubuntu_img_filename | awk '{print $1}')
+    local img_sha256sum
+    img_sha256sum=$(curl -s "$ubuntu_img_base_url/SHA256SUMS" | grep "$ubuntu_img_filename" | awk '{print $1}')
 
-    if [ -f "$existing_img" ] && [[ $(sha256sum $existing_img | awk '{print $1}') == $img_sha256sum ]]; then
+    if [ -f "$existing_img" ] && [[ $(sha256sum "$existing_img" | awk '{print $1}') == $img_sha256sum ]]; then
         echo -n "The image file exists in Proxmox ISO storage. Copying..."
         run_cmd "cp $existing_img $ubuntu_img_filename"
         print_ok
@@ -124,10 +120,10 @@ set_custom_dns () {
 
     run_cmd "virt-customize -a $ubuntu_img_filename --run-command \
         'echo \"[Resolve]\" > /etc/systemd/resolved.conf && \
-        echo \"DNS=1.1.1.1 1.0.0.1\" >> /etc/systemd/resolved.conf && \
-        echo \"FallbackDNS=8.8.8.8 8.8.4.4\" >> /etc/systemd/resolved.conf && \
-        echo \"Domains=~.\" >> /etc/systemd/resolved.conf && \
-        echo \"DNSStubListener=no\" >> /etc/systemd/resolved.conf'"
+         echo \"DNS=1.1.1.1 1.0.0.1\" >> /etc/systemd/resolved.conf && \
+         echo \"FallbackDNS=8.8.8.8 8.8.4.4\" >> /etc/systemd/resolved.conf && \
+         echo \"Domains=~.\" >> /etc/systemd/resolved.conf && \
+         echo \"DNSStubListener=no\" >> /etc/systemd/resolved.conf'"
 
     run_cmd "virt-customize -a $ubuntu_img_filename --run-command 'ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf'"
     print_ok
@@ -148,9 +144,9 @@ create_vm_tmpl () {
     print_ok
 }
 
-cleanup () { 
+cleanup () {
     echo -n "Performing cleanup..."
-    rm -rf $script_tmp_path 
+    rm -rf "$script_tmp_path"
     print_ok
 }
 
