@@ -1,4 +1,4 @@
-name: Install Tailscale on Proxmox
+name: Install Tailscale on Server
 
 on:
   workflow_dispatch:
@@ -33,7 +33,6 @@ jobs:
           script: |
             chmod +x ~/install-tailscale-vpn/script.sh
             # Set environment variables and then run the script
-            export TAILSCALE_DOMAIN="${{ vars.TAILSCALE_DOMAIN }}"
             export TAILSCALE_HOSTNAME="${{ vars.TAILSCALE_HOSTNAME }}"
             export TAILSCALE_EXIT_NODE="${{ vars.TAILSCALE_EXIT_NODE }}"
             export TAILSCALE_AUTH_KEY="${{ secrets.TAILSCALE_AUTH_KEY }}"

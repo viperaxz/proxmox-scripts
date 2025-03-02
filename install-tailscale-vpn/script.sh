@@ -1,12 +1,6 @@
 #!/bin/bash
 set -e
 
-# Check for required environment variables.
-if [ -z "$TAILSCALE_DOMAIN" ]; then
-  echo "Error: TAILSCALE_DOMAIN environment variable is not set."
-  exit 1
-fi
-
 if [ -z "$TAILSCALE_HOSTNAME" ]; then
   echo "Error: TAILSCALE_HOSTNAME environment variable is not set."
   exit 1
@@ -23,7 +17,6 @@ if [ -z "$TAILSCALE_EXIT_NODE" ]; then
 fi
 
 echo "Using the following parameters:"
-echo "  Domain:      $TAILSCALE_DOMAIN"
 echo "  Hostname:    $TAILSCALE_HOSTNAME"
 echo "  Exit Node:   $TAILSCALE_EXIT_NODE"
 
@@ -48,12 +41,9 @@ else
   EXIT_FLAG=""
 fi
 
-# Construct the fully qualified hostname.
-FULL_HOSTNAME="${TAILSCALE_HOSTNAME}.${TAILSCALE_DOMAIN}"
-echo "Starting Tailscale with hostname: $FULL_HOSTNAME"
 
 # Bring up Tailscale with the provided auth key and hostname.
-sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname="$FULL_HOSTNAME" $EXIT_FLAG
+sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname="$TAILSCALE_HOSTNAME" $EXIT_FLAG
 
 # (Optional) Show Tailscale status.
 sudo tailscale status
