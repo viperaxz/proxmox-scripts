@@ -1,56 +1,42 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+umask 077
 
-if [ -z "$TAILSCALE_HOSTNAME" ]; then
-  echo "Error: TAILSCALE_HOSTNAME environment variable is not set."
+: "${TAILSCALE_HOSTNAME:?TAILSCALE_HOSTNAME is required}"
+: "${TAILSCALE_AUTH_KEY:?TAILSCALE_AUTH_KEY is required}"
+TAILSCALE_EXIT_NODE="${TAILSCALE_EXIT_NODE:-false}"
+
+echo "Tailscale installation starting…"
+echo " - Configuration values hidden for security."
+
+source /etc/os-release
+codename="${VERSION_CODENAME}"
+
+if [[ -z "$codename" ]]; then
+  echo "Could not determine Debian codename. Aborting."
   exit 1
 fi
 
-if [ -z "$TAILSCALE_AUTH_KEY" ]; then
-  echo "Error: TAILSCALE_AUTH_KEY environment variable is not set."
-  exit 1
-fi
+sudo mkdir -p /usr/share/keyrings
 
-# Default TAILSCALE_EXIT_NODE to "false" if not provided.
-if [ -z "$TAILSCALE_EXIT_NODE" ]; then
-  TAILSCALE_EXIT_NODE="false"
-fi
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg" \
+  | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
 
-echo "Using the following parameters:"
-echo "  Hostname:    $TAILSCALE_HOSTNAME"
-echo "  Exit Node:   $TAILSCALE_EXIT_NODE"
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.tailscale-keyring.list" \
+  | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
 
-# Check if running as root; if so, do not use sudo.
-if [ "$(id -u)" -eq 0 ]; then
-    SUDO=""
-else
-    SUDO="sudo"
-fi
+sudo apt-get update -y
+sudo apt-get install -y tailscale
 
-# Uninstall Tailscale if it exists.
-if command -v tailscale >/dev/null 2>&1; then
-  echo "Tailscale is already installed. Uninstalling..."
-  $SUDO tailscale down
-  $SUDO apt-get purge -y tailscale || true
-  $SUDO apt-get autoremove -y || true
-else
-  echo "Tailscale is not installed. Proceeding with installation..."
-fi
-
-# Install Tailscale using the official install script.
-echo "Installing Tailscale..."
-curl -fsSL https://tailscale.com/install.sh | sh
-
-# Prepare the exit node flag if needed.
-if [ "$TAILSCALE_EXIT_NODE" = "true" ]; then
+EXIT_FLAG=""
+if [[ "$TAILSCALE_EXIT_NODE" == "true" ]]; then
   EXIT_FLAG="--advertise-exit-node"
-else
-  EXIT_FLAG=""
 fi
 
+sudo tailscale up \
+  --authkey="$TAILSCALE_AUTH_KEY" \
+  --hostname="$TAILSCALE_HOSTNAME" \
+  $EXIT_FLAG
 
-# Bring up Tailscale with the provided auth key and hostname.
-$SUDO tailscale up --authkey="$TAILSCALE_AUTH_KEY" --hostname="$TAILSCALE_HOSTNAME" $EXIT_FLAG
-
-# (Optional) Show Tailscale status.
-$SUDO tailscale status
+echo "Tailscale installed successfully."
