@@ -15,10 +15,13 @@ on:
         description: "Proxmox Template Name (default: ubuntu-2404)"
         required: false
         default: "ubuntu-2404"
-      STORAGE_INDEX:
-        description: "Storage index to use (default: 0)"
-        required: false
-        default: "3"
+      STORAGE_NAME:
+        description: "Proxmox storage name (e.g., local-lvm)"
+        required: true
+        default: "local-lvm"
+
+permissions:
+  contents: read
 
 jobs:
   create-vm-template:
@@ -34,20 +37,23 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
+          fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           source: "create-vm-template/script.sh"
           target: "~/"
 
       - name: Execute VM Template script on remote server via SSH
-        uses: appleboy/ssh-action@v1.2.1
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
+          fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           script: |
             export UBUNTU_VERSION="${{ github.event.inputs.UBUNTU_VERSION }}"
             export VM_TMPL_ID="${{ github.event.inputs.VM_TMPL_ID }}"
             export VM_TMPL_NAME="${{ github.event.inputs.VM_TMPL_NAME }}"
-            export STORAGE_INDEX="${{ github.event.inputs.STORAGE_INDEX }}"
+            export STORAGE_NAME="${{ github.event.inputs.STORAGE_NAME }}"
+            chmod +x ~/script.sh || true
             chmod +x ~/create-vm-template/script.sh
             ~/create-vm-template/script.sh

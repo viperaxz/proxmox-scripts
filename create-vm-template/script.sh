@@ -37,12 +37,33 @@ tmp_dir="$(mktemp -d -t proxmox-scripts.XXXXXX)"
 cleanup() { rm -rf "$tmp_dir"; }
 trap cleanup EXIT
 
-# ---- storage selection
-mapfile -t storages < <(pvesm status | awk 'NR>1 {print $1}')
-((${#storages[@]} > 0)) || die "No storages returned by pvesm status"
-((storage_index < ${#storages[@]})) || die "STORAGE_INDEX out of range"
+# ---- storage selection ----
+storage_name="${STORAGE_NAME:-}"
 
-vm_disk_storage="${storages[$storage_index]}"
+if [[ -n "$storage_name" ]]; then
+  # Find storages that support VM images
+  mapfile -t image_storages < <(pvesm status --content images | awk 'NR>1 {print $1}')
+  ((${#image_storages[@]} > 0)) || die "No storages supporting VM images found."
+
+  vm_disk_storage=""
+  for s in "${image_storages[@]}"; do
+    if [[ "$s" == "$storage_name" ]]; then
+      vm_disk_storage="$s"
+      break
+    fi
+  done
+
+  [[ -n "$vm_disk_storage" ]] || die "Storage '$storage_name' not found or does not support images."
+
+else
+  die "STORAGE_NAME is required. No fallback to STORAGE_INDEX anymore."
+fi
+
+echo "Using:"
+echo " - Ubuntu:   $ubuntu_ver"
+echo " - Template: $vm_tmpl_id ($vm_tmpl_name)"
+echo " - Storage:  $vm_disk_storage"
+
 
 ubuntu_img_url="https://cloud-images.ubuntu.com/releases/${ubuntu_ver}/release/ubuntu-${ubuntu_ver}-server-cloudimg-amd64.img"
 ubuntu_img_filename="$(basename "$ubuntu_img_url")"
