@@ -37,7 +37,6 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
-          fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           source: "create-vm-template/script.sh"
           target: "~/"
 
@@ -48,7 +47,6 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
-          fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           script: |
             export UBUNTU_VERSION="${{ github.event.inputs.UBUNTU_VERSION }}"
             export VM_TMPL_ID="${{ github.event.inputs.VM_TMPL_ID }}"
