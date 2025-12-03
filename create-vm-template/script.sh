@@ -86,8 +86,7 @@ enable_cpu_hotplug() {
 }
 
 install_qemu_agent() {
-  virt-customize -a "./$ubuntu_img_filename" --run-command \
-    "apt-get update -y && apt-get install -y qemu-guest-agent && systemctl enable --now qemu-guest-agent"
+  virt-customize -a "./$ubuntu_img_filename" --run-command "export DEBIAN_FRONTEND=noninteractive; apt-get update -y" --install qemu-guest-agent
 }
 
 reset_machine_id() {
