@@ -19,7 +19,7 @@ privsep="${PRIVSEP:-1}"
 token_dir="${TOKEN_DIR:-/root/proxmox-api-tokens}"
 token_file="${token_dir}/${userid//@/_}__${tokenid}.secret"
 
-required_privs="VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Monitor VM.Audit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit"
+required_privs="VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options Sys.Audit  VM.GuestAgent.Audit VM.Audit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Please run as root (recommended) or ensure passwordless sudo is configured." >&2
