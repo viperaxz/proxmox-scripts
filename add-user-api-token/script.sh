@@ -1,91 +1,101 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+umask 077
 
-# Parameter to control token overwrite; defaults to false.
-OVERWRITE_TOKEN=${OVERWRITE_TOKEN:-false}
+OVERWRITE_TOKEN="${OVERWRITE_TOKEN:-false}"
 
-roleid="TerraformDeploy"
-userid="terraform-deploy@pve"
-tokenid="token1"
+roleid="${ROLE_ID:-TerraformDeploy}"
+userid="${USER_ID:-terraform-deploy@pve}"
+tokenid="${TOKEN_ID:-token1}"
+
+# Strongly recommended: scope this to /pool/<pool> or /vms/<id> etc.
+acl_path="${ACL_PATH:-/}"
+
+# Token privilege separation: recommended true (1)
+privsep="${PRIVSEP:-1}"
+
+# Where to store the *one-time* token secret output (root-only)
+token_dir="${TOKEN_DIR:-/root/proxmox-api-tokens}"
+token_file="${token_dir}/${userid//@/_}__${tokenid}.secret"
+
 required_privs="VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Monitor VM.Audit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit"
 
-# Check if running as root; if so, do not use sudo.
-if [ "$(id -u)" -eq 0 ]; then
-    SUDO=""
-else
-    SUDO="sudo"
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Please run as root (recommended) or ensure passwordless sudo is configured." >&2
+  exit 1
+fi
+SUDO=""
+
+need_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+if ! need_cmd jq; then
+  apt-get update
+  apt-get install -y jq
 fi
 
-# Update package list and install sudo and jq if needed.
-$SUDO apt-get update && $SUDO apt-get install sudo jq -y
+mkdir -p "$token_dir"
+chmod 700 "$token_dir"
 
-#######################################
-# Check for existing user using JSON output.
-#######################################
-if $SUDO pveum user list --noheader 1 --noborder 1 --output-format json-pretty | \
-      jq -e '.[] | select(.userid=="'"$userid"'")' > /dev/null; then
-    echo "User '$userid' exists. Using existing user."
+user_exists() {
+  pveum user list --output-format json \
+    | jq -e --arg u "$userid" '.[] | select(.userid==$u)' >/dev/null
+}
+
+role_exists() {
+  pveum role list --output-format json \
+    | jq -e --arg r "$roleid" '.[] | select(.roleid==$r)' >/dev/null
+}
+
+token_exists() {
+  pveum user token list "$userid" --output-format json \
+    | jq -e --arg t "$tokenid" '.[] | select(.tokenid==$t)' >/dev/null
+}
+
+echo "Ensuring user: $userid"
+if user_exists; then
+  echo " - user exists"
 else
-    echo "Creating user '$userid'."
-    $SUDO pveum user add $userid
+  pveum user add "$userid"
+  echo " - user created"
 fi
 
-#######################################
-# Check for existing role and ensure privileges.
-#######################################
-if $SUDO pveum role list --noheader 1 --noborder 1 --output-format json-pretty | \
-      jq -e '.[] | select(.roleid=="'"$roleid"'")' > /dev/null; then
-    echo "Role '$roleid' exists. Checking privileges."
-    # Extract the current privileges for the role.
-    current_privs=$($SUDO pveum role list --noheader 1 --noborder 1 --output-format json-pretty | \
-        jq -r '.[] | select(.roleid=="'"$roleid"'") | .privs')
-    
-    missing_privs=""
-    for priv in $required_privs; do
-        if ! echo "$current_privs" | grep -qw "$priv"; then
-            missing_privs="$missing_privs $priv"
-        fi
-    done
-
-    if [ -n "$missing_privs" ]; then
-        echo "Adding missing privileges:$missing_privs"
-        new_privs="$current_privs $missing_privs"
-        $SUDO pveum role modify $roleid -privs "$new_privs"
-    else
-        echo "All required privileges are already set for role '$roleid'."
-    fi
+echo "Ensuring role: $roleid (exact privileges enforced)"
+if role_exists; then
+  # Enforce exact privileges to avoid privilege creep
+  pveum role modify "$roleid" -privs "$required_privs"
+  echo " - role updated"
 else
-    echo "Role '$roleid' does not exist. Creating role with required privileges."
-    $SUDO pveum role add $roleid -privs "$required_privs"
+  pveum role add "$roleid" -privs "$required_privs"
+  echo " - role created"
 fi
 
-#######################################
-# Assign the role to the user via ACL.
-#######################################
-$SUDO pveum aclmod / -user $userid -role $roleid
+echo "Ensuring ACL on path: $acl_path"
+# You can (and should) also assign ACL specifically to the token when privsep=1.
+pveum aclmod "$acl_path" -user "$userid" -role "$roleid"
 
-#######################################
-# Check for existing token using JSON output.
-#######################################
-if $SUDO pveum user token list $userid --noheader 1 --noborder 1 --output-format json-pretty | \
-      jq -e '.[] | select(.tokenid=="'"$tokenid"'")' > /dev/null; then
-    if [ "$OVERWRITE_TOKEN" = "true" ]; then
-        echo "Overwrite enabled: Deleting existing token '$tokenid' for user '$userid'."
-        $SUDO pveum user token delete $userid $tokenid
-        echo "Creating new token '$tokenid' for user '$userid'."
-        $SUDO pveum user token add $userid $tokenid -privsep false
-    else
-        echo "Token '$tokenid' for user '$userid' exists."
-    fi
-else
-    echo "Creating token '$tokenid' for user '$userid'."
-    $SUDO pveum user token add $userid $tokenid -privsep false
+echo "Ensuring API token: ${userid}!${tokenid} (privsep=$privsep)"
+if token_exists; then
+  if [[ "$OVERWRITE_TOKEN" == "true" ]]; then
+    pveum user token delete "$userid" "$tokenid"
+    echo " - existing token deleted"
+  else
+    echo " - token exists (not overwriting)"
+    exit 0
+  fi
 fi
 
-#######################################
-# Save token details (using JSON output) into a file and display them.
-#######################################
-$SUDO pveum user token list $userid --noheader 1 --noborder 1 --output-format json-pretty | \
-    jq -c '.[] | select(.tokenid=="'"$tokenid"'")' > token
+# IMPORTANT: do NOT let token secret hit stdout (GitHub logs).
+# pveum prints the secret only at creation time.
+pveum user token add "$userid" "$tokenid" -privsep "$privsep" >"$token_file"
+chmod 600 "$token_file"
+echo " - token created; secret saved on host to: $token_file"
 
-echo "Token details:"
-cat token
+# If using privsep=1, assign role directly to the token too (recommended).
+# Token permissions are always a subset of its user’s permissions. :contentReference[oaicite:2]{index=2}
+if [[ "$privsep" == "1" ]]; then
+  pveum aclmod "$acl_path" -token "${userid}!${tokenid}" -role "$roleid"
+  echo " - ACL applied to token on $acl_path"
+fi
+
+echo "Done."
