@@ -62,7 +62,7 @@ get_image() {
   local sums
   sums="$(curl -fsSL "${ubuntu_img_base_url}/SHA256SUMS")"
   local img_sha
-  img_sha="$(awk -v f="$ubuntu_img_filename" '$2==f {print $1}' <<<"$sums")"
+  img_sha="$(awk -v f="$ubuntu_img_filename" '$2==f || $2=="*"f {print $1}' <<<"$sums")"
   [[ -n "$img_sha" ]] || die "Could not find sha256 for $ubuntu_img_filename"
 
   if [[ -f "$existing_img" ]] && [[ "$(sha256sum "$existing_img" | awk '{print $1}')" == "$img_sha" ]]; then
@@ -78,6 +78,7 @@ get_image() {
     install -m 0644 "./$ubuntu_img_filename" "$existing_img"
   fi
 }
+
 
 enable_cpu_hotplug() {
   virt-customize -a "./$ubuntu_img_filename" --run-command \
