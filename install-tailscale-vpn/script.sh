@@ -20,9 +20,8 @@ sudo apt-get install -y gpg sq
 # MUST fix directory permissions (due to umask 077)
 sudo install -d -m 0755 /usr/share/keyrings
 
-curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.pubkey.gpg" \
-  | sudo gpg --dearmor --yes \
-      -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg" \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/tailscale-archive-keyring.gpg
 
 sudo chmod 0644 /usr/share/keyrings/tailscale-archive-keyring.gpg
 
