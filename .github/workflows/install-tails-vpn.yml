@@ -22,7 +22,7 @@ jobs:
           target: "~/"
 
       - name: Execute installation script on remote server via SSH
-        uses: appleboy/ssh-action@v1.2.1
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.EXTERNAL_IP_OR_DOMAIN }}
           username: ${{ vars.USERNAME }}
