@@ -2,7 +2,14 @@ name: Install Tailscale on Server
 
 on:
   workflow_dispatch:
+    inputs:
+      reset:
+        description: "Force re-auth (TAILSCALE_RESET=true). Use when rotating auth key."
+        required: false
+        default: "false"
 
+permissions:
+  contents: read
 
 jobs:
   install-tailscale:
@@ -18,6 +25,8 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
+          # Recommended if you set it:
+          # fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           source: "install-tailscale-vpn/script.sh"
           target: "~/"
 
@@ -28,10 +37,15 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ vars.SSH_PORT }}
+          # Recommended if you set it:
+          # fingerprint: ${{ vars.SSH_HOST_FINGERPRINT }}
           script: |
-            chmod +x ~/install-tailscale-vpn/script.sh
-            # Set environment variables and then run the script
-            export TAILSCALE_HOSTNAME="${{ vars.TAILSCALE_HOSTNAME }}"
-            export TAILSCALE_EXIT_NODE="${{ vars.TAILSCALE_EXIT_NODE }}"
-            export TAILSCALE_AUTH_KEY="${{ secrets.TAILSCALE_AUTH_KEY }}"
+            set -euo pipefail
+            chmod 700 ~/install-tailscale-vpn/script.sh
+
+            export TAILSCALE_HOSTNAME='${{ vars.TAILSCALE_HOSTNAME }}'
+            export TAILSCALE_EXIT_NODE='${{ vars.TAILSCALE_EXIT_NODE }}'
+            export TAILSCALE_AUTH_KEY='${{ secrets.TAILSCALE_AUTH_KEY }}'
+            export TAILSCALE_RESET='${{ github.event.inputs.reset }}'
+
             ~/install-tailscale-vpn/script.sh
